@@ -17,12 +17,22 @@ import (
 
 func Start() {
 
+	dbClient := domain.GetDbClient()
+	defer dbClient.Close()
+
 	// wiring
+	// ch := CustomerHandlers{
+	// 	service.NewCustomerService(
+	// 		domain.NewCustomerRepositoryStub(),
+	// 	),
+	// }
+
 	ch := CustomerHandlers{
-		service.NewCustomerService(
-			domain.NewCustomerRepositoryStub(),
+		service: service.NewCustomerService(
+			domain.NewCustomerRepositoryDb(dbClient),
 		),
 	}
+
 	// 1. Initialize the Gorilla Mux router instead of http.NewServeMux()
 	router := mux.NewRouter()
 

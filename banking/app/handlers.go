@@ -4,7 +4,6 @@ import (
 	"banking/service"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -35,56 +34,49 @@ type CustomerHandlers struct {
 }
 
 func (ch *CustomerHandlers) getAllCustomers(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
 
-	// Use Content Negotiation by checking what format the client is asking for (Accept)
+	customers, err := ch.service.GetAllCustomers(status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	if r.Header.Get("Accept") == "application/xml" {
 		w.Header().Set("Content-Type", "application/xml")
-		response, _ := ch.service.GetAllCustomers()
-		// response := CustomersResponse{Customers: customers}
+		if err := xml.NewEncoder(w).Encode(customers); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
 
-		if err := xml.NewEncoder(w).Encode(response); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	} else {
-		// Default fallback is JSON
-		w.Header().Set("Content-Type", "application/json")
-		response, _ := ch.service.GetAllCustomers()
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(customers); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func (ch *CustomerHandlers) getCustomer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	idStr := vars["customer_id"]
+	id := vars["customer_id"]
 
-	// Convert ID string to integer to simulate database lookup
-	var id int
-	_, err := fmt.Sscanf(idStr, "%d", &id)
-
-	// Hardcoded dummy check against our 10 items
-	if err != nil || id < 1 || id > 10 {
-		http.Error(w, "Customer not found", http.StatusNotFound)
+	customer, err := ch.service.GetCustomer(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
-	// Fetch specific customer (adjusting for 0-indexed slice)
-	response, _ := ch.service.GetAllCustomers()
-	customer := response[id-1]
-
-	// Content negotiation for individual customer
 	if r.Header.Get("Accept") == "application/xml" {
 		w.Header().Set("Content-Type", "application/xml")
-		// response := CustomerResponse{Customer: customer}
 		if err := xml.NewEncoder(w).Encode(customer); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
-	} else {
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(customer); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(customer); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
