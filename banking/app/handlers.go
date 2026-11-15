@@ -1,11 +1,13 @@
 package app
 
 import (
+	"banking/service"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"log"
 	"net/http"
+
 	"github.com/gorilla/mux"
 )
 
@@ -28,51 +30,39 @@ type CustomerResponse struct {
 	Customer
 }
 
-// 10 random Tanzanian records for dummy data
-var customers = []Customer{
-		{"Juma", "New Mbeya", "56276"},
-		{"Mizo", "New Dar", "889276"},
-		{"Neema", "Arusha", "23101"},
-		{"Baraka", "Dodoma", "41101"},
-		{"Subira", "Mwanza", "33102"},
-		{"Bakari", "Tanga", "21103"},
-		{"Faraja", "Zanzibar", "71101"},
-		{"Amani", "Morogoro", "61104"},
-		{"Rehema", "Iringa", "51102"},
-		{"Chacha", "Musoma", "31105"},
-	}
-
-func greet(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Hello World!")
+type CustomerHandlers struct {
+	service service.CustomerService
 }
 
-func getAllCustomers(w http.ResponseWriter, r *http.Request) {
+func (ch *CustomerHandlers) getAllCustomers(w http.ResponseWriter, r *http.Request) {
 
 	// Use Content Negotiation by checking what format the client is asking for (Accept)
 	if r.Header.Get("Accept") == "application/xml" {
 		w.Header().Set("Content-Type", "application/xml")
-		
-		response := CustomersResponse{Customers: customers}
+		response, _ := ch.service.GetAllCustomers()
+		// response := CustomersResponse{Customers: customers}
+
 		if err := xml.NewEncoder(w).Encode(response); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	} else {
 		// Default fallback is JSON
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(customers); err != nil {
+		response, _ := ch.service.GetAllCustomers()
+		if err := json.NewEncoder(w).Encode(response); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
 }
 
-func getCustomer(w http.ResponseWriter, r *http.Request) {
+func (ch *CustomerHandlers) getCustomer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["customer_id"]
-	
+
 	// Convert ID string to integer to simulate database lookup
 	var id int
 	_, err := fmt.Sscanf(idStr, "%d", &id)
-	
+
 	// Hardcoded dummy check against our 10 items
 	if err != nil || id < 1 || id > 10 {
 		http.Error(w, "Customer not found", http.StatusNotFound)
@@ -80,13 +70,14 @@ func getCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch specific customer (adjusting for 0-indexed slice)
-	customer := customers[id-1]
+	response, _ := ch.service.GetAllCustomers()
+	customer := response[id-1]
 
 	// Content negotiation for individual customer
 	if r.Header.Get("Accept") == "application/xml" {
 		w.Header().Set("Content-Type", "application/xml")
-		response := CustomerResponse{Customer: customer}
-		if err := xml.NewEncoder(w).Encode(response); err != nil {
+		// response := CustomerResponse{Customer: customer}
+		if err := xml.NewEncoder(w).Encode(customer); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	} else {
@@ -130,7 +121,7 @@ func createCustomer(w http.ResponseWriter, r *http.Request) {
 	// Respond with 201 Created and return the newly created resource
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	
+
 	if err := json.NewEncoder(w).Encode(newCustomer); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

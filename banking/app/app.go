@@ -1,6 +1,8 @@
 package app
 
 import (
+	"banking/domain"
+	"banking/service"
 	"context"
 	"log"
 	"net/http"
@@ -14,14 +16,18 @@ import (
 )
 
 func Start() {
+
+	// wiring
+	ch := CustomerHandlers{
+		service.NewCustomerService(
+			domain.NewCustomerRepositoryStub(),
+		),
+	}
 	// 1. Initialize the Gorilla Mux router instead of http.NewServeMux()
 	router := mux.NewRouter()
-	
+
 	// Define your routes using the new router
-	router.HandleFunc("/greet", greet).Methods("GET")
-	router.HandleFunc("/customers", getAllCustomers).Methods("GET")
-	router.HandleFunc("/customers", createCustomer).Methods("POST") // Added POST route
-	router.HandleFunc("/customers/{customer_id:[0-9]+}", getCustomer).Methods("GET")
+	router.HandleFunc("/customers", ch.getAllCustomers).Methods("GET")
 
 	// 2. Configure the HTTP server parameters explicitly, passing the Gorilla router as the Handler
 	srv := &http.Server{
