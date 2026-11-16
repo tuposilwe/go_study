@@ -1,5 +1,4 @@
-package domain
-
+package app
 
 import (
 	"context"
@@ -7,14 +6,18 @@ import (
 	"os"
 	"time"
 
-
 	"github.com/jackc/pgx/v5/pgxpool"
+	 "github.com/joho/godotenv"
 )
 
 func GetDbClient() *pgxpool.Pool {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, relying on system environment variables")
+	}
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://postgres:RudigerDeskillz47@localhost:5432/banking?sslmode=disable"
+		log.Fatal("DATABASE_URL is not set")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

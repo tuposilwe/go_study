@@ -17,16 +17,10 @@ import (
 
 func Start() {
 
-	dbClient := domain.GetDbClient()
+	dbClient := GetDbClient()
 	defer dbClient.Close()
 
 	// wiring
-	// ch := CustomerHandlers{
-	// 	service.NewCustomerService(
-	// 		domain.NewCustomerRepositoryStub(),
-	// 	),
-	// }
-
 	ch := CustomerHandlers{
 		service: service.NewCustomerService(
 			domain.NewCustomerRepositoryDb(dbClient),
@@ -38,6 +32,7 @@ func Start() {
 
 	// Define your routes using the new router
 	router.HandleFunc("/customers", ch.getAllCustomers).Methods("GET")
+	router.HandleFunc("/customers/{customer_id:[0-9]+}", ch.getCustomer).Methods("GET")
 
 	// 2. Configure the HTTP server parameters explicitly, passing the Gorilla router as the Handler
 	srv := &http.Server{
