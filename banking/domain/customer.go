@@ -1,5 +1,7 @@
 package domain
 
+import "banking/errs"
+
 type Customer struct {
 	Id          string `json:"customer_id" xml:"id"`
 	Name        string `json:"full_name" xml:"name"`
@@ -11,5 +13,5 @@ type Customer struct {
 
 type CustomerRepository interface {
 	FindAll(status string) ([]Customer, error)
-	ById(id string) (*Customer, error)
+	ById(id string) (*Customer, *errs.AppError)
 }

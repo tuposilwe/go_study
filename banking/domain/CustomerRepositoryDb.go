@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"banking/errs"
 	"context"
 	"errors"
 	"fmt"
@@ -86,7 +87,7 @@ func (d CustomerRepositoryDb) FindAll(status string) ([]Customer, error) {
 }
 
 // ById retrieves a single customer by customer_id.
-func (d CustomerRepositoryDb) ById(id string) (*Customer, error) {
+func (d CustomerRepositoryDb) ById(id string) (*Customer, *errs.AppError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -111,9 +112,9 @@ func (d CustomerRepositoryDb) ById(id string) (*Customer, error) {
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("customer not found")
+			return nil, errs.NewNotFoundError("customer not found")
 		}
-		return nil, fmt.Errorf("error querying customer by id: %w", err)
+		return nil, errs.NewUnexpectedError("Unexpected database error")
 	}
 
 	c.DateofBirth = dob.Format("2006-01-02")
