@@ -62,7 +62,7 @@ func (ch *CustomerHandlers) getCustomer(w http.ResponseWriter, r *http.Request) 
 
 	customer, err := ch.service.GetCustomer(id)
 	if err != nil {
-		http.Error(w, err.Message, http.StatusNotFound)
+		writeResponse(w, err.Code, err.AsMessage())
 		return
 	}
 
@@ -74,10 +74,7 @@ func (ch *CustomerHandlers) getCustomer(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(customer); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	writeResponse(w, http.StatusOK, customer)
 }
 
 func createCustomer(w http.ResponseWriter, r *http.Request) {
@@ -117,4 +114,13 @@ func createCustomer(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(newCustomer); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func writeResponse(w http.ResponseWriter, code int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		panic(err)
+	}
+
 }

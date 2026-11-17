@@ -1,0 +1,7 @@
+### Get customer by ID (invalid ID test)
+GET http://localhost:8000/customers/20001
+Accept: application/json
+
+### Get all customers
+GET http://localhost:8000/customers
+Accept: application/json
