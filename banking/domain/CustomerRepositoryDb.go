@@ -2,6 +2,7 @@ package domain
 
 import (
 	"banking/errs"
+	"banking/logger"
 	"context"
 	"errors"
 	"fmt"
@@ -45,6 +46,7 @@ func (d CustomerRepositoryDb) FindAll(status string) ([]Customer, error) {
 	}
 
 	if err != nil {
+		logger.Error(err.Error())
 		return nil, fmt.Errorf("error querying customers: %w", err)
 	}
 	defer rows.Close()
@@ -80,6 +82,7 @@ func (d CustomerRepositoryDb) FindAll(status string) ([]Customer, error) {
 	}
 
 	if err := rows.Err(); err != nil {
+		logger.Error(err.Error())
 		return nil, fmt.Errorf("error iterating customer rows: %w", err)
 	}
 
@@ -112,8 +115,11 @@ func (d CustomerRepositoryDb) ById(id string) (*Customer, *errs.AppError) {
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			logger.Error(err.Error())
 			return nil, errs.NewNotFoundError("customer not found")
 		}
+
+		logger.Error(err.Error())
 		return nil, errs.NewUnexpectedError("Unexpected database error")
 	}
 
