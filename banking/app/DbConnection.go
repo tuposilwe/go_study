@@ -6,11 +6,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	 "github.com/joho/godotenv"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 )
 
-func GetDbClient() *pgxpool.Pool {
+func GetDbClient() *sqlx.DB {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, relying on system environment variables")
 	}
@@ -23,15 +24,16 @@ func GetDbClient() *pgxpool.Pool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	pool, err := pgxpool.New(ctx, dbURL)
+	db, err := sqlx.ConnectContext(ctx, "pgx", dbURL)
 	if err != nil {
-		log.Fatalf("Unable to create PostgreSQL connection pool: %v\n", err)
+		log.Fatalf("Unable to connect to PostgreSQL database: %v\n", err)
 	}
 
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("Unable to ping PostgreSQL database: %v\n", err)
-	}
+	// Configure standard database/sql connection pool settings (previously handled by pgxpool)
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	log.Println("Connected to PostgreSQL banking database!")
-	return pool
+	return db
 }

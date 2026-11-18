@@ -3,5 +3,5 @@ GET http://localhost:8000/customers/2000121
 Accept: application/json
 
 ### Get all customers
-GET http://localhost:8000/customers?status=inactive
+GET http://localhost:8000/customers
 Accept: application/json

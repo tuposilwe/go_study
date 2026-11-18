@@ -4,21 +4,47 @@ import (
 	"banking/errs"
 	"banking/logger"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jmoiron/sqlx"
 )
 
 type CustomerRepositoryDb struct {
-	client *pgxpool.Pool
+	client *sqlx.DB
 }
 
-// NewCustomerRepositoryDb creates a repository using an existing pgxpool connection pool.
-func NewCustomerRepositoryDb(pool *pgxpool.Pool) CustomerRepositoryDb {
-	return CustomerRepositoryDb{client: pool}
+// NewCustomerRepositoryDb creates a repository using an existing sqlx.DB connection.
+func NewCustomerRepositoryDb(db *sqlx.DB) CustomerRepositoryDb {
+	return CustomerRepositoryDb{client: db}
+}
+
+// customerRow is an internal DTO used by sqlx to scan raw DB types before converting to Customer.
+type customerRow struct {
+	Id          string    `db:"customer_id"`
+	Name        string    `db:"name"`
+	City        string    `db:"city"`
+	Zipcode     string    `db:"zipcode"`
+	DateofBirth time.Time `db:"date_of_birth"`
+	Status      int16     `db:"status"`
+}
+
+func (r customerRow) toDomain() Customer {
+	status := "inactive"
+	if r.Status == 1 {
+		status = "active"
+	}
+
+	return Customer{
+		Id:          r.Id,
+		Name:        r.Name,
+		City:        r.City,
+		Zipcode:     r.Zipcode,
+		DateofBirth: r.DateofBirth.Format("2006-01-02"),
+		Status:      status,
+	}
 }
 
 // FindAll retrieves all customers, optionally filtered by status ("active", "inactive", or "").
@@ -27,7 +53,7 @@ func (d CustomerRepositoryDb) FindAll(status string) ([]Customer, error) {
 	defer cancel()
 
 	var (
-		rows pgx.Rows
+		rows []customerRow
 		err  error
 	)
 
@@ -36,54 +62,23 @@ func (d CustomerRepositoryDb) FindAll(status string) ([]Customer, error) {
 		FROM customers`
 
 	if status == "" {
-		rows, err = d.client.Query(ctx, baseQuery+" ORDER BY customer_id")
+		err = d.client.SelectContext(ctx, &rows, baseQuery+" ORDER BY customer_id")
 	} else {
 		statusCode := 1
 		if status == "inactive" {
 			statusCode = 0
 		}
-		rows, err = d.client.Query(ctx, baseQuery+" WHERE status = $1 ORDER BY customer_id", statusCode)
+		err = d.client.SelectContext(ctx, &rows, baseQuery+" WHERE status = $1 ORDER BY customer_id", statusCode)
 	}
 
 	if err != nil {
 		logger.Error(err.Error())
 		return nil, fmt.Errorf("error querying customers: %w", err)
 	}
-	defer rows.Close()
 
-	customers := make([]Customer, 0)
-	for rows.Next() {
-		var (
-			c          Customer
-			dob        time.Time
-			statusCode int16
-		)
-
-		err := rows.Scan(
-			&c.Id,
-			&c.Name,
-			&c.City,
-			&c.Zipcode,
-			&dob,
-			&statusCode,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("error scanning customer row: %w", err)
-		}
-
-		c.DateofBirth = dob.Format("2006-01-02")
-		if statusCode == 1 {
-			c.Status = "active"
-		} else {
-			c.Status = "inactive"
-		}
-
-		customers = append(customers, c)
-	}
-
-	if err := rows.Err(); err != nil {
-		logger.Error(err.Error())
-		return nil, fmt.Errorf("error iterating customer rows: %w", err)
+	customers := make([]Customer, 0, len(rows))
+	for _, r := range rows {
+		customers = append(customers, r.toDomain())
 	}
 
 	return customers, nil
@@ -99,22 +94,10 @@ func (d CustomerRepositoryDb) ById(id string) (*Customer, *errs.AppError) {
 		FROM customers 
 		WHERE customer_id = $1`
 
-	var (
-		c          Customer
-		dob        time.Time
-		statusCode int16
-	)
-
-	err := d.client.QueryRow(ctx, query, id).Scan(
-		&c.Id,
-		&c.Name,
-		&c.City,
-		&c.Zipcode,
-		&dob,
-		&statusCode,
-	)
+	var row customerRow
+	err := d.client.GetContext(ctx, &row, query, id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			logger.Error(err.Error())
 			return nil, errs.NewNotFoundError("customer not found")
 		}
@@ -123,12 +106,6 @@ func (d CustomerRepositoryDb) ById(id string) (*Customer, *errs.AppError) {
 		return nil, errs.NewUnexpectedError("Unexpected database error")
 	}
 
-	c.DateofBirth = dob.Format("2006-01-02")
-	if statusCode == 1 {
-		c.Status = "active"
-	} else {
-		c.Status = "inactive"
-	}
-
-	return &c, nil
+	customer := row.toDomain()
+	return &customer, nil
 }
